@@ -185,7 +185,11 @@ class Pipeline:
                     evidence=str(raw.get("evidence", "")),
                     summary=str(raw.get("summary", "")),
                 )
-        except (LLMError, KeyError, TypeError, ValueError):
+        except (LLMError, KeyError, TypeError, ValueError) as exc:
+            import logging
+            logging.getLogger("mindguard").warning(
+                "风险判定失败 session=%s: %s(对话内容不落日志)",
+                session_id, type(exc).__name__)
             risk = None
 
         # MCP 副作用:存档 + (3 级)预警邮件;副作用失败绝不击穿响应流

@@ -134,6 +134,21 @@ async def test_alert_email_exception_flags_review(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_risk_failure_logging_redacts_content(tmp_path, caplog):
+    """风险层失败日志不得包含对话内容(PII 脱敏)。"""
+    import logging
+    llm = FakeLLM(risk_error=True)
+    store, pipeline = make_pipeline(tmp_path, llm)
+    sid = store.create_session("20230001", "张三")
+    secret = "我最近不想活了很难过"
+    with caplog.at_level(logging.WARNING, logger="mindguard"):
+        await collect(pipeline, sid, secret)
+    combined = "\n".join(r.getMessage() for r in caplog.records)
+    assert secret not in combined
+    assert sid in combined  # 仍保留会话定位信息
+
+
+@pytest.mark.asyncio
 async def test_casual_chat_skips_archive_and_risk(tmp_path):
     llm = FakeLLM(intent={"intent": "casual_chat", "emotion": "平静", "brief": "寒暄"})
     store, pipeline = make_pipeline(tmp_path, llm)

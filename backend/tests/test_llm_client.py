@@ -68,10 +68,11 @@ def test_structured_null_content_raises_llmerror():
 def test_structured_invalid_json_raises_llmerror():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={
-            "choices": [{"message": {"content": "这不是JSON"}}]})
+            "choices": [{"message": {"content": "这不是JSON,里面有敏感对话内容"}}]})
 
-    with pytest.raises(LLMError):
+    with pytest.raises(LLMError) as excinfo:
         _client(handler).structured([{"role": "user", "content": "hi"}], SCHEMA)
+    assert "敏感对话内容" not in str(excinfo.value)  # 异常不携带模型输出
 
 
 def test_health_ok():

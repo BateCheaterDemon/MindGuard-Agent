@@ -17,7 +17,10 @@ class LLMError(Exception):
 
 
 def _parse_json_loose(content: str) -> dict:
-    """解析模型返回的 JSON,容忍代码围栏包裹。"""
+    """解析模型返回的 JSON,容忍代码围栏包裹。
+
+    异常消息不携带模型输出内容(避免对话内容进入日志/traceback)。
+    """
     text = content.strip()
     if text.startswith("```"):
         lines = text.splitlines()
@@ -26,9 +29,9 @@ def _parse_json_loose(content: str) -> dict:
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise LLMError(f"结构化输出解析失败: {content[:200]!r}") from exc
+        raise LLMError(f"结构化输出解析失败: {type(exc).__name__}(内容已隐藏)") from exc
     if not isinstance(parsed, dict):
-        raise LLMError(f"结构化输出不是对象: {content[:200]!r}")
+        raise LLMError("结构化输出不是对象(内容已隐藏)")
     return parsed
 
 
