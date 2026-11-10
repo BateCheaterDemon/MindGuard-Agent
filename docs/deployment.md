@@ -27,9 +27,10 @@ cd mini_vllm && conda run -n vllm_deployment python scripts/download_model.py --
 conda run -n vllm_deployment python scripts/quantize.py --model 4b --samples 256
 cd ../MindGuard
 
-# 2.2 embedding 模型 bge-m3(经 ModelScope,约 2.3 GB)
+# 2.2 embedding 模型(经 ModelScope)
+# 默认 bge-small-zh-v1.5(~100 MB,数分钟);带宽充足可改 bge-m3(~5 GB,数小时)
 conda run -n vllm_deployment python knowledge/build_chroma.py \
-  --docs-dir knowledge/raw --persist-dir data/chroma --embed bge-m3 --device auto
+  --docs-dir knowledge/raw --persist-dir data/chroma --embed bge-small-zh-v1.5 --device auto
 ```
 
 ## 3. 配置
@@ -65,11 +66,12 @@ bash scripts/stop_all.sh
 | 组件 | 显存 |
 |---|---|
 | LLM(Qwen3.5-4B-cpsy-W4A16,8 GiB 预算) | ~8 GiB |
-| bge-m3(fp16) | ~2.4 GiB |
+| bge-small-zh-v1.5(fp16) | ~0.1 GiB |
 | CUDA 上下文/余量 | ~1 GiB |
-| **合计** | **~11.4 GiB** |
+| **合计** | **~9.1 GiB** |
 
-显存不足(如 12 GiB 卡)时的降级:embedding 改用 bge-small-zh-v1.5 并走 CPU,
+16 GiB 目标留有充足余量。若改用 bge-m3,embedding 占 ~2.4 GiB,合计 ~11.4 GiB,
+仍在预算内;显存不足(如 12 GiB 卡)时 bge-small-zh 可转 CPU,
 见 `scripts/check_vram.py` 输出的建议;LLM 预算由 mini_vllm 的 planner 自动收紧。
 
 ## 6. 常见故障
