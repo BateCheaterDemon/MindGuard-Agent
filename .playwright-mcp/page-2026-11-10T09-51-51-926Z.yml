@@ -1,9 +1,0 @@
-- generic [ref=e2]:
-  - banner [ref=e3]:
-    - heading "MindGuard 心理陪伴" [level=1] [ref=e4]
-    - generic [ref=e30]: 张三(20230001)
-    - button "重新开始" [ref=e5] [cursor=pointer]
-  - generic [ref=e6]: 你好,我在。有什么想聊聊的吗?
-  - generic [ref=e7]:
-    - textbox "在这里说点什么,我一直都在…" [ref=e8]
-    - button "发送" [ref=e9] [cursor=pointer]

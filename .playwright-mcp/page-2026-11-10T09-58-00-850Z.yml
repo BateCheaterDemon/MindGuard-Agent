@@ -1,8 +1,0 @@
-- generic [ref=f2e2]:
-  - banner [ref=f2e3]:
-    - heading "MindGuard 管理端" [level=1] [ref=f2e4]
-    - generic [ref=f2e5]: 仅限管理员
-  - generic [ref=f2e7]:
-    - heading "管理员登录" [level=2] [ref=f2e8]
-    - textbox "管理密码" [ref=f2e9]
-    - button "登录" [ref=f2e11] [cursor=pointer]
