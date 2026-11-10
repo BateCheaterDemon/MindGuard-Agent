@@ -79,6 +79,8 @@ class Pipeline:
                 queue.put_nowait(("d", None))
             except LLMError as exc:
                 queue.put_nowait(("e", exc))
+            except BaseException as exc:  # noqa: BLE001 线程内任何异常都必须回到调用方,否则请求挂死
+                queue.put_nowait(("e", LLMError(f"生成线程异常: {exc!r}")))
 
         threading.Thread(target=run, daemon=True).start()
         while True:

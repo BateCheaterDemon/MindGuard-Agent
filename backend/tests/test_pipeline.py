@@ -92,6 +92,25 @@ async def collect(pipeline, sid, text):
     return [event async for event in pipeline.process(sid, text)]
 
 
+class _UnexpectedErrorLLM(FakeLLM):
+    """chat_stream 抛非 LLMError 异常:线程不得静默死亡导致请求挂死。"""
+
+    def chat_stream(self, messages, temperature=0.7):
+        self.last_reply_messages = list(messages)
+        raise ValueError("意外的底层异常")
+
+
+@pytest.mark.asyncio
+async def test_generation_unexpected_error_does_not_hang(tmp_path):
+    llm = _UnexpectedErrorLLM()
+    store, pipeline = make_pipeline(tmp_path, llm)
+    sid = store.create_session("20230001", "张三")
+    import asyncio
+    events = await asyncio.wait_for(collect(pipeline, sid, "我很难过"), timeout=5)
+    assert any(e["event"] == "error" for e in events)
+    assert events[-1]["event"] == "done"  # 流程正常收尾,连接不挂死
+
+
 @pytest.mark.asyncio
 async def test_casual_chat_skips_archive_and_risk(tmp_path):
     llm = FakeLLM(intent={"intent": "casual_chat", "emotion": "平静", "brief": "寒暄"})
