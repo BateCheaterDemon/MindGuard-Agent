@@ -25,6 +25,8 @@ async def test_mcp_tools_write_archive_roundtrip(tmp_path):
             risk_summary="摘要", conversation="用户: 我很难过", alerted=False,
             alerted_at="")
         result = await tools.write_archive(record)
+        # 必须落在配置的 archives 目录,而非子进程 cwd 相对路径(曾致写到 backend/data/)
+        assert Path(result).parent == tmp_path / "archives"
         assert Path(result).exists()
     finally:
         await tools.close()

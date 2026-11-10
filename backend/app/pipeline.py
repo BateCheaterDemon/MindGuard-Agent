@@ -188,9 +188,15 @@ class Pipeline:
         except (LLMError, KeyError, TypeError, ValueError):
             risk = None
 
-        # MCP 副作用:存档 + (3 级)预警邮件
+        # MCP 副作用:存档 + (3 级)预警邮件;副作用失败绝不击穿响应流
         record = self._store.build_archive_record(session_id)
-        await self._archiver.write_archive(record)
+        try:
+            await self._archiver.write_archive(record)
+        except Exception as exc:  # noqa: BLE001
+            import logging
+            logging.getLogger("mindguard").error(
+                "存档写入失败 session=%s: %s", session_id, exc)
+            self._store.add_review_item(session_id, "存档写入失败")
 
         if risk is None:
             self._store.add_review_item(session_id, "风险判定解析失败")
@@ -211,7 +217,14 @@ class Pipeline:
                     conversation=record.conversation,
                     created_at=record.updated_at,
                 )
-                if await self._archiver.send_alert_email(alert):
+                try:
+                    sent = await self._archiver.send_alert_email(alert)
+                except Exception as exc:  # noqa: BLE001
+                    import logging
+                    logging.getLogger("mindguard").error(
+                        "预警邮件调用异常 session=%s: %s", session_id, exc)
+                    sent = False
+                if sent:
                     alerted = True
                     self._store.record_alert(session_id, 3, "sent")
                 else:

@@ -111,6 +111,28 @@ async def test_generation_unexpected_error_does_not_hang(tmp_path):
     assert events[-1]["event"] == "done"  # 流程正常收尾,连接不挂死
 
 
+class _RaisingArchiver(FakeArchiver):
+    """发信抛任意异常:管线不得中断,事件流必须收尾。"""
+
+    async def send_alert_email(self, alert):
+        raise RuntimeError("工具服务器炸了")
+
+
+@pytest.mark.asyncio
+async def test_alert_email_exception_flags_review(tmp_path):
+    llm = FakeLLM(risk={"risk_level": 3, "risk_type": "自伤意念", "evidence": "e", "summary": "s"})
+    store = SessionStore(tmp_path / "p.db")
+    cfg = Config(admin_password="x")
+    pipeline = Pipeline(llm=llm, rag=None, store=store,
+                        archiver=_RaisingArchiver(), config=cfg)
+    sid = store.create_session("20230001", "张三")
+    events = await collect(pipeline, sid, "我不想活了")
+    assert any(e["event"] == "risk_done" for e in events)
+    assert events[-1]["event"] == "done"
+    assert any("邮件发送失败" in it["reason"]
+               for it in store.list_review_items(pending_only=True))
+
+
 @pytest.mark.asyncio
 async def test_casual_chat_skips_archive_and_risk(tmp_path):
     llm = FakeLLM(intent={"intent": "casual_chat", "emotion": "平静", "brief": "寒暄"})
