@@ -52,33 +52,33 @@ def require_admin(request: Request) -> None:
 
 
 class RateLimiter:
-    """滑动窗口限流:每 IP 每路径每分钟上限。"""
+    """滑动窗口限流:按路径配置每 IP 每分钟上限;未配置的路径不限。"""
 
-    def __init__(self, per_minute: int):
-        self._per_minute = per_minute
+    def __init__(self, budgets: dict[str, int]):
+        self._budgets = budgets
         self._hits: dict[tuple[str, str], deque[float]] = {}
         self._lock = threading.Lock()
 
     def check(self, ip: str, path: str) -> bool:
+        limit = self._budgets.get(path)
+        if limit is None:
+            return True
         now = time.monotonic()
         key = (ip, path)
         with self._lock:
             dq = self._hits.setdefault(key, deque())
             while dq and now - dq[0] > 60:
                 dq.popleft()
-            if len(dq) >= self._per_minute:
+            if len(dq) >= limit:
                 return False
             dq.append(now)
             return True
 
 
-_LIMITED_PATHS = ("/api/chat", "/api/sessions")
-
-
 async def rate_limit_middleware(request: Request, call_next):
-    """仅作用于 /api/chat 与 /api/sessions。"""
+    """按路径限流(额度表在创建 app 时注入)。"""
     limiter: RateLimiter | None = getattr(request.app.state, "rate_limiter", None)
-    if limiter is not None and request.url.path in _LIMITED_PATHS:
+    if limiter is not None:
         ip = request.client.host if request.client else "unknown"
         if not limiter.check(ip, request.url.path):
             from fastapi.responses import JSONResponse

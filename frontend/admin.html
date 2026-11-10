@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MindGuard · 管理端</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="chat-head"><h1>MindGuard 管理端</h1><span class="who">仅限管理员</span></header>
+
+    <div id="login" class="hidden">
+      <div class="dialog" style="margin-top:40px">
+        <h2>管理员登录</h2>
+        <input type="password" id="pwd" placeholder="管理密码">
+        <div class="error-text" id="login-error"></div>
+        <button id="btn-login" type="button">登录</button>
+      </div>
+    </div>
+
+    <div id="panel" class="hidden">
+      <div class="tabs">
+        <button data-tab="archives" class="active" type="button">对话存档</button>
+        <button data-tab="review" type="button">复核队列</button>
+        <button data-tab="alerts" type="button">预警记录</button>
+        <button data-tab="config" type="button">系统配置</button>
+      </div>
+
+      <div id="tab-archives">
+        <div class="filters">
+          <input id="flt-date" type="date" placeholder="日期">
+          <input id="flt-student" type="text" placeholder="学号/姓名">
+          <button id="btn-search" type="button">查询</button>
+        </div>
+        <table>
+          <thead><tr><th>时间</th><th>学号</th><th>姓名</th><th>意图</th><th>风险</th><th>预警</th><th>对话</th></tr></thead>
+          <tbody id="archives-body"></tbody>
+        </table>
+      </div>
+
+      <div id="tab-review" class="hidden">
+        <table>
+          <thead><tr><th>时间</th><th>会话</th><th>原因</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody id="review-body"></tbody>
+        </table>
+      </div>
+
+      <div id="tab-alerts" class="hidden">
+        <table>
+          <thead><tr><th>时间</th><th>会话</th><th>等级</th><th>状态</th><th>错误</th></tr></thead>
+          <tbody id="alerts-body"></tbody>
+        </table>
+      </div>
+
+      <div id="tab-config" class="hidden">
+        <div class="form-row"><label>预警收件邮箱(辅导员,只读)</label>
+          <input id="cfg-email" type="text" readonly></div>
+        <div class="form-row"><label>SMTP 服务器(只读)</label>
+          <input id="cfg-smtp-host" type="text" readonly></div>
+        <div class="form-row"><label>SMTP 端口(只读)</label>
+          <input id="cfg-smtp-port" type="number" readonly></div>
+        <div class="form-row"><label>SMTP 用户名(只读)</label>
+          <input id="cfg-smtp-username" type="text" readonly></div>
+        <div class="form-row"><label>SMTP 发件地址(只读)</label>
+          <input id="cfg-smtp-from" type="text" readonly></div>
+        <div class="form-row"><label>RAG 检索条数(top_k)</label>
+          <input id="cfg-rag-k" type="number"></div>
+        <div class="form-row"><label>RAG 相似度阈值</label>
+          <input id="cfg-rag-threshold" type="number" step="0.01"></div>
+        <button id="btn-save-config" class="primary-btn" type="button">保存</button>
+        <p style="color:var(--muted);font-size:.85rem">注:收件邮箱与 SMTP 请通过环境变量/配置文件修改,重启后端后生效。</p>
+      </div>
+    </div>
+  </div>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

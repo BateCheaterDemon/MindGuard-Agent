@@ -86,15 +86,39 @@ def test_admin_archives_lists_sessions(store):
     assert client.get("/api/admin/archives", params={"student_id": "999"}).json()["sessions"] == []
 
 
+def test_admin_login_rate_limited(store):
+    client = TestClient(make_app(store, rate_limit=3))
+    codes = [client.post("/api/admin/login", json={"password": "wrong"}).status_code
+             for _ in range(7)]
+    assert codes[:5] == [401] * 5  # 每 IP 每分钟最多 5 次尝试
+    assert codes[5] == 429
+
+
 def test_admin_config_roundtrip(store):
     client = TestClient(make_app(store))
     client.post("/api/admin/login", json={"password": "secret123"})
     resp = client.get("/api/admin/config")
     assert resp.status_code == 200
     assert resp.json()["alert_email_to"] == "c@example.edu"
+    # 敏感/凭据类字段不可运行时修改:拒绝并提示走环境变量/配置文件
     resp = client.post("/api/admin/config", json={"alert_email_to": "new@example.edu"})
+    assert resp.status_code == 400
+    resp = client.post("/api/admin/config", json={"smtp_host": "evil.example.com"})
+    assert resp.status_code == 400
+    # 非敏感参数可运行时修改
+    resp = client.post("/api/admin/config", json={"rag_top_k": 6})
     assert resp.status_code == 200
-    assert client.get("/api/admin/config").json()["alert_email_to"] == "new@example.edu"
+    assert client.get("/api/admin/config").json()["rag_top_k"] == 6
+
+
+def test_admin_cookie_secure_flag(store, tmp_path):
+    cfg = Config(admin_password="secret123", cookie_secure=True,
+                 frontend_dir=tmp_path)
+    app = create_app(cfg, FakePipeline(), store)
+    client = TestClient(app)
+    resp = client.post("/api/admin/login", json={"password": "secret123"})
+    assert resp.status_code == 200
+    assert "Secure" in resp.headers.get("set-cookie", "")
 
 
 def test_health_reports_probes(store):

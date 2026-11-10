@@ -30,7 +30,11 @@ def create_app(config: Config, pipeline, store: SessionStore,
     app.state.rate_limiter = None
     if config.rate_limit_per_minute > 0:
         from app.security import RateLimiter
-        app.state.rate_limiter = RateLimiter(config.rate_limit_per_minute)
+        app.state.rate_limiter = RateLimiter({
+            "/api/chat": config.rate_limit_per_minute,
+            "/api/sessions": config.rate_limit_per_minute,
+            "/api/admin/login": 5,  # 防密码爆破
+        })
     app.middleware("http")(rate_limit_middleware)
 
     # ---------- 生命周期:启动 MCP 工具服务器 + 会话超时归档 ----------
@@ -94,12 +98,17 @@ def create_app(config: Config, pipeline, store: SessionStore,
     # ---------- 管理端 ----------
 
     @app.post("/api/admin/login")
-    async def admin_login(body: dict, response: Response) -> dict:
+    async def admin_login(body: dict, request: Request, response: Response) -> dict:
+        ip = request.client.host if request.client else "unknown"
         if not check_admin_password(str(body.get("password", "")), config):
+            import logging
+            logging.getLogger("mindguard").warning(
+                "管理员登录失败 ip=%s", ip)
             raise HTTPException(status_code=401, detail="密码错误")
         token = issue_admin_token()
         response.set_cookie("mg_admin_token", token, httponly=True,
-                            samesite="lax", max_age=12 * 3600)
+                            samesite="lax", max_age=12 * 3600,
+                            secure=config.cookie_secure)
         return {"ok": True}
 
     @app.post("/api/admin/logout", dependencies=[Depends(require_admin)])
@@ -144,21 +153,25 @@ def create_app(config: Config, pipeline, store: SessionStore,
 
     @app.post("/api/admin/config", dependencies=[Depends(require_admin)])
     async def admin_set_config(body: dict) -> dict:
-        if "alert_email_to" in body:
-            config.alert_email_to = str(body["alert_email_to"]).strip()
-        if "smtp_host" in body:
-            config.smtp.host = str(body["smtp_host"]).strip()
-        if "smtp_port" in body:
-            config.smtp.port = int(body["smtp_port"])
-        if "smtp_username" in body:
-            config.smtp.username = str(body["smtp_username"]).strip()
-        if "smtp_from" in body:
-            config.smtp.from_addr = str(body["smtp_from"]).strip()
+        # 凭据/收件邮箱等敏感字段不可运行时修改(防 SSRF 与凭据外泄),
+        # 只能经环境变量/配置文件修改并重启;仅非敏感检索参数可在线调整。
+        mutable = {"rag_top_k", "rag_threshold"}
+        immutable = sorted(set(body) - mutable)
+        if immutable:
+            raise HTTPException(
+                status_code=400,
+                detail=f"以下字段需通过环境变量/配置文件修改并重启: {immutable}")
         if "rag_top_k" in body:
             config.rag_top_k = int(body["rag_top_k"])
         if "rag_threshold" in body:
             config.rag_threshold = float(body["rag_threshold"])
-        return {"ok": True, "note": "SMTP/收件邮箱变更在重启后端后对邮件发送生效"}
+        return {"ok": True}
+
+    # 前端静态托管:必须在所有 API 路由之后挂载,否则 Mount("/") 会遮蔽后续路由
+    from fastapi.staticfiles import StaticFiles
+    if config.frontend_dir.exists():
+        app.mount("/", StaticFiles(directory=str(config.frontend_dir), html=True),
+                  name="static")
 
     return app
 

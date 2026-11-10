@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MindGuard · 心理陪伴</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="chat-head">
+      <h1>MindGuard 心理陪伴</h1>
+      <span class="who" id="who"></span>
+      <button id="btn-restart" type="button">重新开始</button>
+    </header>
+
+    <div id="messages"></div>
+
+    <div id="composer">
+      <textarea id="input" rows="1" placeholder="在这里说点什么,我一直都在…"></textarea>
+      <button id="btn-send" type="button">发送</button>
+    </div>
+  </div>
+
+  <!-- 告知同意 -->
+  <div class="overlay hidden" id="overlay-consent">
+    <div class="dialog">
+      <h2>使用前请阅读</h2>
+      <div class="notice">
+        为了在紧急情况下保护你的安全,本系统的使用说明如下:<br>
+        1. 你的对话内容将被<strong>记录存档</strong>,仅管理员可见;<br>
+        2. 若系统检测到<strong>高风险</strong>情况(如自伤/自杀风险),
+        将向<strong>辅导员发送预警</strong>,辅导员可能会联系你;<br>
+        3. 本系统是 AI 陪伴工具,<strong>不提供专业诊疗</strong>;
+        紧急情况请拨打全国心理援助热线 <strong>12356</strong>。
+      </div>
+      <label><input type="checkbox" id="chk-consent"> 我已阅读并同意以上说明</label>
+      <button id="btn-consent" type="button" disabled>同意并继续</button>
+    </div>
+  </div>
+
+  <!-- 身份填写 -->
+  <div class="overlay hidden" id="overlay-identity">
+    <div class="dialog">
+      <h2>请填写你的信息</h2>
+      <p>用于对话记录与紧急情况下的联系(仅管理员可见)。</p>
+      <input type="text" id="fld-student-id" placeholder="学号">
+      <input type="text" id="fld-name" placeholder="姓名">
+      <div class="error-text" id="identity-error"></div>
+      <button id="btn-identity" type="button">开始对话</button>
+    </div>
+  </div>
+
+  <script src="/js/chat.js"></script>
+</body>
+</html>

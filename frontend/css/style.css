@@ -1,0 +1,213 @@
+/* MindGuard 前端样式:温暖、平静、有陪伴感 */
+:root {
+  --bg: #f6f1e8;
+  --card: #fffdf8;
+  --ink: #3a342e;
+  --muted: #8a8178;
+  --accent: #3d8b7d;
+  --accent-deep: #2f6e63;
+  --danger: #c05b4d;
+  --border: #e4dccd;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, "PingFang SC", "Hiragino Sans GB",
+    "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.65;
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* ---------- 聊天页 ---------- */
+header.chat-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 4px;
+}
+header.chat-head h1 { font-size: 1.2rem; margin: 0; color: var(--accent-deep); }
+header.chat-head .who { font-size: .85rem; color: var(--muted); }
+header.chat-head button {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+#messages {
+  min-height: 55vh;
+  max-height: 62vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0 16px;
+}
+
+.bubble {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--border);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.bubble.user { align-self: flex-end; background: #e3ece8; border-color: #cfdeda; }
+.bubble .wait { color: var(--muted); }
+.sys-note {
+  align-self: center;
+  font-size: .8rem;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+}
+
+#composer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px 0 14px;
+  background: linear-gradient(transparent, var(--bg) 30%);
+}
+#composer textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font: inherit;
+  background: var(--card);
+  min-height: 44px;
+  max-height: 120px;
+}
+#composer button {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 0 22px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+#composer button:disabled { background: #b9c8c2; cursor: default; }
+
+/* ---------- 弹窗(告知/身份) ---------- */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(58, 52, 46, .45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.dialog {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(58,52,46,.2);
+}
+.dialog h2 { margin: 0 0 12px; font-size: 1.1rem; color: var(--accent-deep); }
+.dialog p { font-size: .92rem; color: var(--ink); margin: 8px 0; }
+.dialog .notice {
+  background: #fbf3e7;
+  border: 1px solid #ead9bd;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: .88rem;
+}
+.dialog label { display: flex; gap: 8px; align-items: flex-start; font-size: .9rem; margin: 12px 0; }
+.dialog input[type=text] {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  margin-bottom: 10px;
+}
+.dialog button {
+  width: 100%;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 10px;
+  padding: 11px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.dialog button:disabled { background: #b9c8c2; cursor: default; }
+.error-text { color: var(--danger); font-size: .85rem; min-height: 1.2em; }
+
+/* ---------- 管理端 ---------- */
+.tabs { display: flex; gap: 6px; margin: 12px 0; flex-wrap: wrap; }
+.tabs button {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 999px;
+  padding: 7px 16px;
+  cursor: pointer;
+  font-size: .9rem;
+}
+.tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: .85rem;
+}
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+th { background: #efe8da; color: var(--accent-deep); font-weight: 600; }
+td.conv { max-width: 280px; white-space: pre-wrap; word-break: break-word; }
+.tag { padding: 2px 8px; border-radius: 999px; font-size: .78rem; }
+.tag.r3 { background: #f7ddd8; color: var(--danger); }
+.tag.r2 { background: #fbf0d9; color: #9a7424; }
+.tag.ok { background: #e3ece8; color: var(--accent-deep); }
+
+.filters { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.filters input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font: inherit;
+  background: var(--card);
+}
+.filters button, .row-btn {
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent-deep);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: .85rem;
+}
+.form-row { margin-bottom: 12px; }
+.form-row label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
+.form-row input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font: inherit;
+  background: var(--card);
+}
+.primary-btn {
+  border: none; background: var(--accent); color: #fff;
+  border-radius: 10px; padding: 10px 22px; font-size: .95rem; cursor: pointer;
+}
+.hidden { display: none !important; }
