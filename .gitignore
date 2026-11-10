@@ -1,0 +1,7 @@
+data/
+logs/
+*.xlsx
+__pycache__/
+.pytest_cache/
+.superpowers/
+*.pyc

@@ -1,0 +1,10 @@
+# MindGuard 后端依赖(叠加在 vllm_deployment 环境之上)
+# 安装后必须验证 import transformers, vllm, chromadb 三者共存
+fastapi
+uvicorn[standard]
+chromadb
+openpyxl
+fastmcp
+httpx
+pytest
+pytest-asyncio
