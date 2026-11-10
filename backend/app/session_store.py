@@ -104,17 +104,25 @@ class SessionStore:
                 "UPDATE sessions SET updated_at=? WHERE session_id=?",
                 (_now(), session_id))
 
+    def build_archive_record(self, session_id: str) -> ArchiveRecord:
+        """组装 Excel 行数据的快照(不关闭会话);close_session 在此基础上加关闭标记。"""
+        return self._archive_record(session_id)
+
     def close_session(self, session_id: str) -> ArchiveRecord:
+        with self._connect() as conn:
+            now = _now()
+            conn.execute(
+                "UPDATE sessions SET closed_at=?, updated_at=? WHERE session_id=?",
+                (now, now, session_id))
+        return self._archive_record(session_id)
+
+    def _archive_record(self, session_id: str) -> ArchiveRecord:
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT * FROM sessions WHERE session_id=?", (session_id,)).fetchone()
             messages = conn.execute(
                 "SELECT role, content, created_at FROM messages WHERE session_id=?"
                 " ORDER BY id", (session_id,)).fetchall()
-            now = _now()
-            conn.execute(
-                "UPDATE sessions SET closed_at=?, updated_at=? WHERE session_id=?",
-                (now, now, session_id))
         if row is None:
             raise ValueError(f"会话不存在: {session_id}")
         role_names = {"user": "用户", "assistant": "助手"}
@@ -123,7 +131,7 @@ class SessionStore:
         return ArchiveRecord(
             session_id=session_id,
             started_at=row["created_at"],
-            updated_at=now,
+            updated_at=row["updated_at"],
             student_id=row["student_id"],
             name=row["name"],
             message_count=len(messages),

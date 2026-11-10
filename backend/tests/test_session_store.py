@@ -82,6 +82,17 @@ def test_record_risk_updates_max(store):
     assert store.get_session(sid)["max_risk_level"] == 3  # 不回退
 
 
+def test_build_archive_record_snapshot_does_not_close(store):
+    """快照存档不关闭会话:后续消息仍可写入,超时判断仍生效。"""
+    sid = store.create_session("20230001", "张三")
+    store.add_message(sid, "user", "第一条")
+    record = store.build_archive_record(sid)
+    assert record.message_count == 1
+    assert store.get_session(sid)["closed_at"] is None  # 未关闭
+    store.add_message(sid, "user", "第二条")
+    assert store.build_archive_record(sid).message_count == 2
+
+
 def test_review_queue_flow(store):
     sid = store.create_session("20230001", "张三")
     store.add_review_item(sid, "风险判定解析失败")
