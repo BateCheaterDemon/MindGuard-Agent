@@ -35,7 +35,7 @@ class Config:
     archives_dir: Path = PROJECT_ROOT / "data" / "archives"
     db_path: Path = PROJECT_ROOT / "data" / "mindguard.db"
     log_dir: Path = PROJECT_ROOT / "logs"
-    embedding_model: str = "bge-m3"
+    embedding_model: str = "bge-small-zh-v1.5"  # 网络受限时的默认降级;带宽充足可改 bge-m3
     embedding_device: str = "auto"
     rag_top_k: int = 4
     rag_threshold: float = 0.35

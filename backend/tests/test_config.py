@@ -16,7 +16,7 @@ def test_load_config_defaults(monkeypatch):
     assert cfg.session_timeout_minutes == 30
     assert cfg.risk_window_turns == 6
     assert cfg.rate_limit_per_minute == 20
-    assert cfg.embedding_model == "bge-m3"
+    assert cfg.embedding_model == "bge-small-zh-v1.5"  # 网络受限裁决:默认降级模型,可配置回 bge-m3
     assert cfg.embedding_device == "auto"
 
 
