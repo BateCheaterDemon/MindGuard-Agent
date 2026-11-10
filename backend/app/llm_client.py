@@ -59,6 +59,8 @@ class LLMClient:
             "messages": messages,
             "temperature": temperature,
             "stream": True,
+            "max_tokens": 1024,
+            "chat_template_kwargs": {"enable_thinking": False},
         }
         try:
             with self._client.stream("POST", "/chat/completions", json=payload) as resp:
@@ -88,19 +90,27 @@ class LLMClient:
 
     def structured(self, messages: list[dict], schema: dict,
                    temperature: float = 0.0) -> dict:
-        """非流式结构化输出:guided_json 约束解码后返回 dict。"""
+        """非流式结构化输出。
+
+        schema 参数仅作调用类型标识(测试替身据此区分三层);
+        生产实现不用 guided_json——它与 cpsy 模型的思考模板冲突,
+        实测会产出坏 JSON 或空 content,改为提示词约束 + 关思考 + 温度 0。
+        """
         payload = {
             "model": self._model,
             "messages": messages,
             "temperature": temperature,
             "stream": False,
-            "guided_json": schema,
+            "max_tokens": 512,
+            "chat_template_kwargs": {"enable_thinking": False},
         }
         resp = self._post(payload)
         try:
             content = resp.json()["choices"][0]["message"]["content"]
         except (KeyError, IndexError, ValueError) as exc:
             raise LLMError(f"vLLM 响应结构异常: {resp.text[:300]}") from exc
+        if content is None:
+            raise LLMError("结构化输出内容为空(模型未产出内容)")
         return _parse_json_loose(content)
 
     def health(self) -> bool:

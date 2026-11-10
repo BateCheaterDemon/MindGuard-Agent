@@ -37,7 +37,8 @@ def test_chat_stream_http_error_raises_llmerror():
         list(_client(handler).chat_stream([{"role": "user", "content": "hi"}]))
 
 
-def test_structured_sends_guided_json_and_parses():
+def test_structured_disables_thinking_and_parses():
+    """结构化调用必须关思考(guided_json 与 cpsy 思考模板冲突会产出坏 JSON/空内容)。"""
     captured: dict = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -48,8 +49,20 @@ def test_structured_sends_guided_json_and_parses():
     result = _client(handler).structured(
         [{"role": "user", "content": "我很难过"}], SCHEMA)
     assert result == {"intent": "counseling"}
-    assert captured["guided_json"] == SCHEMA
+    assert captured["chat_template_kwargs"] == {"enable_thinking": False}
     assert captured["stream"] is False
+    assert "guided_json" not in captured  # 此 vLLM+模型组合上不可靠,已弃用
+
+
+def test_structured_null_content_raises_llmerror():
+    """content 为 null(模型把 token 全用去思考)必须按解析失败处理,不得 AttributeError。"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={
+            "choices": [{"message": {"content": None}}]})
+
+    with pytest.raises(LLMError):
+        _client(handler).structured([{"role": "user", "content": "hi"}], SCHEMA)
 
 
 def test_structured_invalid_json_raises_llmerror():

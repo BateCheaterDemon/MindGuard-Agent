@@ -80,8 +80,14 @@ def create_app(config: Config, pipeline, store: SessionStore,
             raise HTTPException(status_code=400, detail="会话不存在或已过期")
 
         async def gen():
-            async for event in pipeline.process(session_id, message):
-                yield f"event: {event['event']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+            try:
+                async for event in pipeline.process(session_id, message):
+                    yield f"event: {event['event']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+            except Exception as exc:  # noqa: BLE001 最后防线:异常必须可见,不静默断连
+                import logging
+                logging.getLogger("mindguard").exception(
+                    "chat 流异常 session=%s", session_id)
+                yield (f"event: error\ndata: {json.dumps({'event': 'error', 'message': '系统内部错误,请稍后重试'}, ensure_ascii=False)}\n\n")
 
         return StreamingResponse(gen(), media_type="text/event-stream")
 
