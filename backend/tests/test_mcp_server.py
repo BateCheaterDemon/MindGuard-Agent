@@ -26,6 +26,21 @@ def make_alert() -> AlertPayload:
         conversation="用户: 我不想活了", created_at="2026-11-10T10:00:00")
 
 
+def test_formula_injection_neutralized(tmp_path):
+    """学生可控字段以 = + - @ 开头时,必须存为纯文本而非公式。"""
+    import openpyxl
+    record = make_record()
+    record.student_id = "=1+1"
+    record.name = "@cmd"
+    record.conversation = "=HYPERLINK(\"http://evil\",\"点我\")"
+    path = append_archive_row(record, tmp_path)
+    ws = openpyxl.load_workbook(path).active
+    assert ws.cell(row=2, column=4).value == "=1+1"
+    assert ws.cell(row=2, column=4).data_type == "s"  # 文本,非公式 'f'
+    assert ws.cell(row=2, column=5).data_type == "s"
+    assert ws.cell(row=2, column=6).data_type == "n"  # 数字列保持数字
+
+
 def test_new_file_writes_header_and_row(tmp_path):
     path = append_archive_row(make_record(), tmp_path)
     import openpyxl

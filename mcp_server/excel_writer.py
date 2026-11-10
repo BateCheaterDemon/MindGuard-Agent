@@ -39,6 +39,11 @@ def append_archive_row(record: ArchiveRecord, archives_dir: Path) -> str:
                 ws = wb.active
                 ws.append(COLUMNS)
             ws.append(_row_values(record))
+            # 防公式注入:学生可控的字符串列强制为文本类型,
+            # 即使以 = + - @ 开头也不会被 Excel 当作公式执行。
+            for cell in ws[ws.max_row]:
+                if isinstance(cell.value, str):
+                    cell.data_type = "s"
             wb.save(path)
             wb.close()
         finally:
