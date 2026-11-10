@@ -211,6 +211,30 @@ class SessionStore:
                 "UPDATE review_queue SET status='resolved', resolved_at=?, resolution=?"
                 " WHERE id=?", (_now(), resolution, item_id))
 
+    # ---------- 管理端查询 ----------
+
+    def list_sessions(self, date: str | None = None,
+                      student_id: str | None = None) -> list[dict]:
+        """按日期(updated_at 前缀)与学号筛选会话,按更新时间倒序。"""
+        sql = "SELECT * FROM sessions WHERE 1=1"
+        params: list = []
+        if date:
+            sql += " AND updated_at LIKE ?"
+            params.append(f"{date}%")
+        if student_id:
+            sql += " AND student_id LIKE ?"
+            params.append(f"%{student_id}%")
+        sql += " ORDER BY updated_at DESC LIMIT 500"
+        with self._connect() as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [dict(r) for r in rows]
+
+    def list_alerts(self) -> list[dict]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM alerts ORDER BY id DESC LIMIT 200").fetchall()
+        return [dict(r) for r in rows]
+
     # ---------- 预警 ----------
 
     def record_alert(self, session_id: str, risk_level: int,

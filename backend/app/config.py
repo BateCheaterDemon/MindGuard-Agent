@@ -42,6 +42,7 @@ class Config:
     session_timeout_minutes: int = 30
     risk_window_turns: int = 6
     rate_limit_per_minute: int = 20
+    frontend_dir: Path = PROJECT_ROOT / "frontend"
     admin_password: str = ""  # 必填,来自 env MINDGUARD_ADMIN_PASSWORD
     alert_email_to: str = ""
     smtp: SmtpConfig = field(default_factory=SmtpConfig)
