@@ -13,7 +13,7 @@ from pathlib import Path
 
 # 仓库根入 sys.path:生产入口 `cd backend && python -m app.main` 时,
 # rag.py 需要 import knowledge.chunker(build_chroma/server.py 同款引导)
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
