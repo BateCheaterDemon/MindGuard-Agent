@@ -18,6 +18,13 @@ def test_load_config_defaults(monkeypatch):
     assert cfg.rate_limit_per_minute == 20
     assert cfg.embedding_model == "bge-small-zh-v1.5"  # 网络受限裁决:默认降级模型,可配置回 bge-m3
     assert cfg.embedding_device == "auto"
+    # 数据/前端目录必须落在仓库根(data/ 与 build_chroma/演练脚本的约定一致)
+    repo_root = config_mod.PROJECT_ROOT
+    assert repo_root.name == "MindGuard"
+    assert cfg.chroma_dir == repo_root / "data" / "chroma"
+    assert cfg.archives_dir == repo_root / "data" / "archives"
+    assert cfg.frontend_dir == repo_root / "frontend"
+    assert (repo_root / "mcp_server" / "server.py").exists()
 
 
 def test_missing_admin_password_raises(monkeypatch):
