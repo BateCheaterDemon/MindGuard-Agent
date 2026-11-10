@@ -78,18 +78,7 @@ def create_app(config: Config, pipeline, store: SessionStore,
             raise HTTPException(status_code=400, detail="消息不能为空")
         if store.get_session(session_id) is None:
             raise HTTPException(status_code=400, detail="会话不存在或已过期")
-
-        async def gen():
-            try:
-                async for event in pipeline.process(session_id, message):
-                    yield f"event: {event['event']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
-            except Exception as exc:  # noqa: BLE001 最后防线:异常必须可见,不静默断连
-                import logging
-                logging.getLogger("mindguard").exception(
-                    "chat 流异常 session=%s", session_id)
-                yield (f"event: error\ndata: {json.dumps({'event': 'error', 'message': '系统内部错误,请稍后重试'}, ensure_ascii=False)}\n\n")
-
-        return StreamingResponse(gen(), media_type="text/event-stream")
+        return build_chat_stream(pipeline, session_id, message)
 
     @app.get("/api/health")
     async def health() -> dict:
@@ -182,17 +171,65 @@ def create_app(config: Config, pipeline, store: SessionStore,
     return app
 
 
+def build_chat_stream(pipeline, session_id: str, message: str) -> StreamingResponse:
+    """SSE 响应:管线由独立 worker task 驱动,经队列中转。
+
+    客户端断开只会关闭本响应生成器,worker 继续跑完风险层与存档——
+    "发完高危消息就关页面"不能成为漏报路径(评审 Issue 3)。
+    """
+    import logging
+    queue: asyncio.Queue = asyncio.Queue()
+
+    async def drain() -> None:
+        try:
+            async for event in pipeline.process(session_id, message):
+                await queue.put(event)
+        except Exception as exc:  # noqa: BLE001 最后防线:异常必须可见,不静默断连
+            logging.getLogger("mindguard").exception(
+                "chat 流异常 session=%s", session_id)
+            await queue.put({"event": "error", "message": "系统内部错误,请稍后重试"})
+        finally:
+            await queue.put(None)  # 结束哨兵
+
+    worker = asyncio.create_task(drain())
+
+    async def gen():
+        try:
+            while True:
+                event = await queue.get()
+                if event is None:
+                    break
+                yield f"event: {event['event']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+        finally:
+            pass  # 断连时不取消 worker:风险+存档必须完成
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+async def _close_and_archive_expired(store: SessionStore, archiver,
+                                     now: datetime) -> None:
+    """关闭超时会话并写最终归档行;失败必须留痕,不得静默丢最终行(评审 Issue 4)。"""
+    import logging
+    log = logging.getLogger("mindguard")
+    for sid in await asyncio.to_thread(store.expired_sessions, now):
+        try:
+            record = await asyncio.to_thread(store.close_session, sid)
+            await archiver.write_archive(record)
+        except Exception as exc:  # noqa: BLE001
+            log.error("会话结束归档失败 session=%s: %s", sid, exc)
+            try:
+                await asyncio.to_thread(
+                    store.add_review_item, sid, "会话结束归档失败")
+            except Exception:  # noqa: BLE001 复核写入失败不再处理
+                pass
+
+
 async def _expiry_loop(store: SessionStore, archiver,
                        timeout_minutes: int) -> None:
     """每 60 秒关闭超时会话并写最终归档行。"""
     while True:
         try:
-            for sid in await asyncio.to_thread(store.expired_sessions, datetime.now()):
-                try:
-                    record = await asyncio.to_thread(store.close_session, sid)
-                    await archiver.write_archive(record)
-                except Exception:  # noqa: BLE001 单会话失败不影响循环
-                    continue
+            await _close_and_archive_expired(store, archiver, datetime.now())
         except Exception:  # noqa: BLE001 循环必须存活
             pass
         await asyncio.sleep(60)

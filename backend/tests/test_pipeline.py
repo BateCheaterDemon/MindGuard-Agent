@@ -41,6 +41,7 @@ class FakeLLM:
         if schema == RAG_SCHEMA:
             return dict(self._rag)
         if schema == RISK_SCHEMA:
+            self.last_risk_messages = list(messages)
             return dict(self._risk)
         raise AssertionError(f"未知 schema 调用: {schema}")
 
@@ -146,6 +147,85 @@ async def test_risk_failure_logging_redacts_content(tmp_path, caplog):
     combined = "\n".join(r.getMessage() for r in caplog.records)
     assert secret not in combined
     assert sid in combined  # 仍保留会话定位信息
+
+
+class _CrashingRag(FakeRag):
+    """检索抛非 LLMError 异常(如 chroma 维度不匹配):不得击穿管线跳过风险层。"""
+
+    def search(self, query, k=4, threshold=0.35):
+        raise RuntimeError("Collection expecting embedding with dimension of 1024, got 512")
+
+
+@pytest.mark.asyncio
+async def test_rag_search_exception_degrades_gracefully(tmp_path):
+    llm = FakeLLM(rag={"need_kb": True, "query": "q"})
+    store, pipeline = make_pipeline(tmp_path, llm, rag=_CrashingRag())
+    sid = store.create_session("20230001", "张三")
+    events = await collect(pipeline, sid, "我很难过")
+    assert any(e["event"] == "risk_done" for e in events)  # 风险层仍执行
+    assert events[-1]["event"] == "done"
+    assert len(pipeline._archiver.records) == 1  # 仍存档,不漏报
+
+
+@pytest.mark.asyncio
+async def test_archive_row_reflects_risk_before_write(tmp_path):
+    """高危即时存档行必须携带最新风险与预警状态(先落风险再快照)。"""
+    llm = FakeLLM(risk={"risk_level": 3, "risk_type": "自伤意念", "evidence": "e", "summary": "s"})
+    store, pipeline = make_pipeline(tmp_path, llm)
+    sid = store.create_session("20230001", "张三")
+    await collect(pipeline, sid, "我不想活了")
+    assert len(pipeline._archiver.records) == 1
+    record = pipeline._archiver.records[0]
+    assert record.max_risk_level == 3
+    assert record.alerted is True
+    assert record.risk_summary == "s"
+
+
+@pytest.mark.asyncio
+async def test_client_disconnect_still_finalizes(tmp_path):
+    """断连(响应流 aclose 模拟关标签页)后,风险落库与存档必须仍在后台完成(防漏报)。
+
+    保护在 API 层:管线由独立 worker 驱动,响应生成器断开不影响 worker。
+    """
+    import asyncio
+    from app.api import build_chat_stream
+    llm = FakeLLM(risk={"risk_level": 3, "risk_type": "自伤意念", "evidence": "e", "summary": "s"})
+    store, pipeline = make_pipeline(tmp_path, llm)
+    sid = store.create_session("20230001", "张三")
+    resp = build_chat_stream(pipeline, sid, "我不想活了")
+    it = resp.body_iterator
+    await anext(it)  # 收到第一个事件后"学生关闭了页面"
+    await it.aclose()
+    await asyncio.sleep(0.1)  # 等后台 worker 收尾完成
+    assert pipeline._archiver.records, "断连后存档必须完成"
+    assert store.get_session(sid)["max_risk_level"] == 3
+
+
+@pytest.mark.asyncio
+async def test_intent_recorded_on_archive_row(tmp_path):
+    """意图判定结果写入会话,存档行 intent 列非空(人读存档可用)。"""
+    llm = FakeLLM(intent={"intent": "counseling", "emotion": "低落", "brief": "x"})
+    store, pipeline = make_pipeline(tmp_path, llm)
+    sid = store.create_session("20230001", "张三")
+    await collect(pipeline, sid, "我很难过")
+    assert pipeline._archiver.records[0].intent == "counseling"
+
+
+@pytest.mark.asyncio
+async def test_risk_window_uses_six_turns(tmp_path):
+    """风险上下文按 spec 为 6 轮(12 条消息),早前对话不被截掉。"""
+    llm = FakeLLM()
+    store, pipeline = make_pipeline(tmp_path, llm)
+    sid = store.create_session("20230001", "张三")
+    first_msg = "最开始我说过压力很大,睡不好。"
+    store.add_message(sid, "user", first_msg)
+    for i in range(3):
+        store.add_message(sid, "assistant", f"回复{i}")
+        store.add_message(sid, "user", f"后续消息{i}")
+    # 共 8 条历史 + 本条:6 条窗口会截掉第一条,12 条窗口保留
+    await collect(pipeline, sid, "现在还是很难过")
+    body = llm.last_risk_messages[1]["content"]
+    assert first_msg in body
 
 
 @pytest.mark.asyncio

@@ -104,6 +104,13 @@ class SessionStore:
                 "UPDATE sessions SET updated_at=? WHERE session_id=?",
                 (_now(), session_id))
 
+    def set_intent(self, session_id: str, intent: str) -> None:
+        """记录意图判定结果(存档行 intent 列的数据来源)。"""
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE sessions SET intent=?, updated_at=? WHERE session_id=?",
+                (intent, _now(), session_id))
+
     def build_archive_record(self, session_id: str) -> ArchiveRecord:
         """组装 Excel 行数据的快照(不关闭会话);close_session 在此基础上加关闭标记。"""
         return self._archive_record(session_id)
@@ -196,14 +203,26 @@ class SessionStore:
                 (session_id, reason, _now()))
 
     def list_review_items(self, pending_only: bool = True) -> list[dict]:
+        """复核队列项,附最近消息摘录(人工兜底拿证据,评审 Issue 5)。"""
         sql = "SELECT * FROM review_queue"
-        params: tuple = ()
         if pending_only:
             sql += " WHERE status='pending'"
         sql += " ORDER BY id"
         with self._connect() as conn:
-            rows = conn.execute(sql, params).fetchall()
-        return [dict(r) for r in rows]
+            rows = conn.execute(sql).fetchall()
+        items = []
+        for row in rows:
+            item = dict(row)
+            with self._connect() as conn:
+                msgs = conn.execute(
+                    "SELECT role, content FROM messages WHERE session_id=?"
+                    " ORDER BY id DESC LIMIT 6", (item["session_id"],)).fetchall()
+            excerpt = "\n".join(
+                f"{'用户' if m['role'] == 'user' else '助手'}: {m['content']}"
+                for m in reversed(msgs))
+            item["conversation_excerpt"] = excerpt[:300]
+            items.append(item)
+        return items
 
     def resolve_review_item(self, item_id: int, resolution: str) -> None:
         with self._connect() as conn:

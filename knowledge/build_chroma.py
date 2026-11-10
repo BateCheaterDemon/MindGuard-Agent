@@ -28,7 +28,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--docs-dir", default="knowledge/raw")
     ap.add_argument("--persist-dir", default="data/chroma")
-    ap.add_argument("--embed", default="bge-m3",
+    ap.add_argument("--embed", default="bge-small-zh-v1.5",
                     choices=["bge-m3", "bge-small-zh-v1.5", "fake"])
     ap.add_argument("--device", default="auto")
     args = ap.parse_args()

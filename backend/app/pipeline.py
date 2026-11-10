@@ -133,6 +133,7 @@ class Pipeline:
                     emotion=str(raw.get("emotion", "")),
                     brief=str(raw.get("brief", "")),
                 )
+                self._store.set_intent(session_id, intent.intent)
         except LLMError:
             intent = None  # 保守:按心理流程处理
 
@@ -145,7 +146,7 @@ class Pipeline:
             yield {"event": "done", "archived": False}
             return
 
-        # 第 2 层:RAG 决策 + 检索
+        # 第 2 层:RAG 决策 + 检索(检索任何异常都降级为直答,绝不击穿管线跳过风险层)
         kb_context: list[RetrievedChunk] = []
         try:
             raw = await self._structured(
@@ -155,11 +156,18 @@ class Pipeline:
             rag = RagDecision(need_kb=bool(raw.get("need_kb")),
                               query=str(raw.get("query", "")))
             if rag.need_kb and self._rag is not None and rag.query:
-                kb_context = self._rag.search(
-                    rag.query, k=self._cfg.rag_top_k,
-                    threshold=self._cfg.rag_threshold)
+                try:
+                    kb_context = self._rag.search(
+                        rag.query, k=self._cfg.rag_top_k,
+                        threshold=self._cfg.rag_threshold)
+                except Exception as exc:  # noqa: BLE001
+                    import logging
+                    logging.getLogger("mindguard").warning(
+                        "知识库检索失败 session=%s: %s(按无资料继续,不影响风险层)",
+                        session_id, type(exc).__name__)
+                    kb_context = []
         except LLMError:
-            pass  # RAG 失败按不需要知识库处理,不影响对话
+            pass  # RAG 决策失败按不需要知识库处理,不影响对话
 
         # 生成回复(流式);捕获生成失败标记
         gen_failed = False
@@ -169,10 +177,21 @@ class Pipeline:
         except _GenFailed:
             gen_failed = True
 
+        # 第 3 层 + 副作用(与响应流解耦由 API 层 worker 保证,见 api.py)
+        reply = "" if gen_failed else self._last_assistant_reply(session_id)
+        event = await self._finalize(session_id, reply)
+        yield event
+        yield {"event": "done", "archived": True}
+
+    async def _finalize(self, session_id: str, reply: str) -> dict:
+        """风险判断 → 落库 → 存档/预警;返回 risk_done 事件。
+
+        顺序:先落风险与预警状态,再组装快照写 Excel——高危即时存档行
+        必须携带最新风险等级与预警标记(评审 Issue 2)。
+        """
         # 第 3 层:风险判断(生成失败也要评估,防漏报)
         window = self._store.recent_messages(
-            session_id, self._cfg.risk_window_turns)
-        reply = "" if gen_failed else self._last_assistant_reply(session_id)
+            session_id, self._cfg.risk_window_turns * 2)  # 6 轮 = 12 条
         risk: RiskResult | None = None
         try:
             raw = await self._structured(
@@ -192,34 +211,26 @@ class Pipeline:
                 session_id, type(exc).__name__)
             risk = None
 
-        # MCP 副作用:存档 + (3 级)预警邮件;副作用失败绝不击穿响应流
-        record = self._store.build_archive_record(session_id)
-        try:
-            await self._archiver.write_archive(record)
-        except Exception as exc:  # noqa: BLE001
-            import logging
-            logging.getLogger("mindguard").error(
-                "存档写入失败 session=%s: %s", session_id, exc)
-            self._store.add_review_item(session_id, "存档写入失败")
-
         if risk is None:
             self._store.add_review_item(session_id, "风险判定解析失败")
-            yield {"event": "risk_done", "risk_level": None,
-                   "archived": True, "alerted": False}
+            event = {"event": "risk_done", "risk_level": None,
+                     "archived": True, "alerted": False}
         else:
             self._store.record_risk(session_id, risk)
             alerted = False
             if risk.risk_level >= 3:
                 alert = AlertPayload(
                     session_id=session_id,
-                    student_id=record.student_id,
-                    name=record.name,
+                    student_id=self._store.get_session(session_id)["student_id"],
+                    name=self._store.get_session(session_id)["name"],
                     risk_level=risk.risk_level,
                     risk_type=risk.risk_type,
                     evidence=risk.evidence,
                     summary=risk.summary,
-                    conversation=record.conversation,
-                    created_at=record.updated_at,
+                    conversation="\n".join(
+                        f"{'用户' if m.role == 'user' else '助手'}: {m.content}"
+                        for m in self._store.full_conversation(session_id)),
+                    created_at=self._store.get_session(session_id)["updated_at"],
                 )
                 try:
                     sent = await self._archiver.send_alert_email(alert)
@@ -234,9 +245,19 @@ class Pipeline:
                 else:
                     self._store.record_alert(session_id, 3, "failed")
                     self._store.add_review_item(session_id, "邮件发送失败")
-            yield {"event": "risk_done", "risk_level": risk.risk_level,
-                   "archived": True, "alerted": alerted}
-        yield {"event": "done", "archived": True}
+            event = {"event": "risk_done", "risk_level": risk.risk_level,
+                     "archived": True, "alerted": alerted}
+
+        # 风险与预警已落库,快照才携带最新状态
+        record = self._store.build_archive_record(session_id)
+        try:
+            await self._archiver.write_archive(record)
+        except Exception as exc:  # noqa: BLE001
+            import logging
+            logging.getLogger("mindguard").error(
+                "存档写入失败 session=%s: %s", session_id, exc)
+            self._store.add_review_item(session_id, "存档写入失败")
+        return event
 
     def _last_assistant_reply(self, session_id: str) -> str:
         for msg in reversed(self._store.full_conversation(session_id)):
