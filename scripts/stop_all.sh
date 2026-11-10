@@ -17,7 +17,7 @@ for pidfile in logs/backend.pid logs/vllm.pid; do
   fi
 done
 
-# 兜底:按命令行特征清理残留进程
-pkill -f "scripts/serve.py --model 4b" 2>/dev/null || true
-pkill -f "python -m app.main" 2>/dev/null || true
+# 兜底:按命令行特征清理残留进程([] 括号技巧防 pkill 匹配自身所在脚本的命令行)
+pkill -f "scripts/serve[.]py" 2>/dev/null || true
+pkill -f "python -m app[.]main" 2>/dev/null || true
 echo "停止完成。"

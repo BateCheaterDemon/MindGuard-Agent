@@ -1,0 +1,12 @@
+[      13ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:8091/admin.html:1
+[      14ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8091/api/admin/alerts:1
+[      18ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8091/api/admin/archives?:1
+[      23ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8091/api/admin/review:1
+[      23ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8091/api/admin/alerts:1
+[      23ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8091/api/admin/config:1
+[      24ms] TypeError: Cannot read properties of undefined (reading 'forEach')
+    at loadArchives (http://127.0.0.1:8091/js/admin.js:81:19)
+[      24ms] TypeError: Cannot read properties of undefined (reading 'forEach')
+    at loadReview (http://127.0.0.1:8091/js/admin.js:103:16)
+[      24ms] TypeError: Cannot read properties of undefined (reading 'forEach')
+    at loadAlerts (http://127.0.0.1:8091/js/admin.js:136:17)

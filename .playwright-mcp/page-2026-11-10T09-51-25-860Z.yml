@@ -1,0 +1,14 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - heading "MindGuard 心理陪伴" [level=1] [ref=e4]
+      - button "重新开始" [ref=e5] [cursor=pointer]
+    - generic [ref=e7]:
+      - textbox "在这里说点什么,我一直都在…" [ref=e8]
+      - button "发送" [ref=e9] [cursor=pointer]
+  - generic [ref=e23]:
+    - heading "请填写你的信息" [level=2] [ref=e24]
+    - paragraph [ref=e25]: 用于对话记录与紧急情况下的联系(仅管理员可见)。
+    - textbox "学号" [ref=e26]
+    - textbox "姓名" [ref=e27]
+    - button "开始对话" [ref=e29] [cursor=pointer]

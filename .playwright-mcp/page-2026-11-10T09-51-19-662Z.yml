@@ -1,0 +1,26 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - heading "MindGuard 心理陪伴" [level=1] [ref=e4]
+      - button "重新开始" [ref=e5] [cursor=pointer]
+    - generic [ref=e7]:
+      - textbox "在这里说点什么,我一直都在…" [ref=e8]
+      - button "发送" [ref=e9] [cursor=pointer]
+  - generic [ref=e11]:
+    - heading "使用前请阅读" [level=2] [ref=e12]
+    - generic [ref=e13]:
+      - text: "为了在紧急情况下保护你的安全,本系统的使用说明如下: 1. 你的对话内容将被"
+      - strong [ref=e14]: 记录存档
+      - text: ",仅管理员可见; 2. 若系统检测到"
+      - strong [ref=e15]: 高风险
+      - text: 情况(如自伤/自杀风险), 将向
+      - strong [ref=e16]: 辅导员发送预警
+      - text: ",辅导员可能会联系你; 3. 本系统是 AI 陪伴工具,"
+      - strong [ref=e17]: 不提供专业诊疗
+      - text: ; 紧急情况请拨打全国心理援助热线
+      - strong [ref=e18]: "12356"
+      - text: 。
+    - generic [ref=e19]:
+      - checkbox "我已阅读并同意以上说明" [checked] [active] [ref=e20]
+      - text: 我已阅读并同意以上说明
+    - button "同意并继续" [ref=e21] [cursor=pointer]

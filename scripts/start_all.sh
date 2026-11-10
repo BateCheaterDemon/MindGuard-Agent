@@ -22,12 +22,14 @@ conda run -n "$ENV_NAME" python scripts/check_vram.py --min-gib 16 || {
 
 mkdir -p logs
 
-echo "[2/3] 启动 vLLM(模型服务,仅本机 127.0.0.1:$VLLM_PORT)"
+echo "[2/3] 启动 vLLM(心理健康微调模型 cpsy-W4A16,仅本机 127.0.0.1:$VLLM_PORT)"
 if curl -s -o /dev/null "http://127.0.0.1:$VLLM_PORT/health"; then
   echo "      vLLM 已在运行,跳过"
 else
   nohup conda run -n "$ENV_NAME" python "$MINI_VLLM_DIR/scripts/serve.py" \
-    --model 4b --port "$VLLM_PORT" > logs/vllm.log 2>&1 &
+    --model-path "$MINI_VLLM_DIR/model/Qwen3.5-4B-cpsy-W4A16" \
+    --served-model-name "Qwen3.5-4B-cpsy-W4A16" \
+    --port "$VLLM_PORT" > logs/vllm.log 2>&1 &
   echo $! > logs/vllm.pid
   echo "      等待引擎就绪(首次启动含 FlashInfer JIT 编译,可能需数分钟)"
   for _ in $(seq 1 240); do
